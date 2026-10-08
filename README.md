@@ -4,14 +4,12 @@ A modular, real-time digital guitar multi-effects processor running entirely ins
 
 Each audio effect runs as an **isolated microservice**. Audio blocks are passed between plugins through **POSIX shared memory (`/dev/shm`) and semaphores**, while parameters and drag-and-drop pedal reordering are controlled over UDP from a web dashboard.
 
-<!-- TODO: add a screenshot of the web dashboard here, e.g.
-![Dashboard](docs/dashboard.png)
+
+![Dashboard]
 <p>
   <img src="p1.jpg" width="60%">
   <img src="p2.jpg" width="25%">
 </p>
--->
-
 ---
 
 ## ⚡ Key Highlights
