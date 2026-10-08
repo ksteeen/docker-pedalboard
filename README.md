@@ -64,8 +64,8 @@ Multi-arch images are published, but only the Orange Pi Zero 3 has been verified
 ### 1. Download `docker-compose.yml`
 
 ```bash
-mkdir pedal-system && cd pedal-system
-curl -O https://raw.githubusercontent.com/ksteeen/pedal-system/main/docker-compose.yml
+mkdir docker-pedalboard && cd docker-pedalboard
+curl -O https://raw.githubusercontent.com/ksteeen/docker-pedalboard/main/docker-compose.yml
 ```
 
 ### 2. Identify your audio device
@@ -109,8 +109,8 @@ Available variables: `OVERDRIVE_ACTIVE`, `FUZZ_ACTIVE`, `FLANGER_ACTIVE`, `VIBRA
 If you want to modify the DSP algorithms or build your own plugins:
 
 ```bash
-git clone https://github.com/ksteeen/pedal-system.git
-cd pedal-system
+git clone https://github.com/ksteeen/docker-pedalboard.git
+cd docker-pedalboard
 docker compose -f docker-compose.build.yml up -d --build
 ```
 
