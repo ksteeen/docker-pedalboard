@@ -28,16 +28,16 @@ The engine runs at 48 kHz with a 256-sample period, which is ≈ 5.3 ms per audi
 
 ## 🎛️ Included Effects Chain
 
-| Order | Pedal Name | Category | Controls |
-|---|---|---|---|
-| **#1** | **Obsessive Drive** | Distortion / Overdrive | Drive, Tone, Level, HP/LP mode |
-| **#2** | **Fuzz Face** | Vintage Fuzz | Fuzz, Tone, Level |
-| **#3** | **Jet Flanger** | Modulation | Speed, Depth, Resonance, Manual |
-| **#4** | **Tape Vibrato** | Modulation / Chorus | Speed, Depth, Flutter, Blend |
-| **#5** | **Echo Tape Delay** | Time / Delay | Time (ms), Repeats, Mix, Warmth |
-| **#6** | **Spring Reverb** | Reverb | Mix, Decay, Tone |
-| **#7** | **Celestial Shimmer** | Pitch / Reverb | Mix, Decay, Shimmer Pitch |
-| **#8** | **Cab Sim DI Box** | Cabinet Simulator | Cab Type (US/UK), Presence, Volume |
+| Order | Pedal Name | Category | Controls | On at startup |
+|---|---|---|---|---|
+| **#1** | **Obsessive Drive** | Distortion / Overdrive | Drive, Tone, Level, HP/LP mode | ✅ |
+| **#2** | **Fuzz Face** | Vintage Fuzz | Fuzz, Tone, Level | |
+| **#3** | **Jet Flanger** | Modulation | Speed, Depth, Resonance, Manual | |
+| **#4** | **Tape Vibrato** | Modulation / Chorus | Speed, Depth, Flutter, Blend | |
+| **#5** | **Echo Tape Delay** | Time / Delay | Time (ms), Repeats, Mix, Warmth | |
+| **#6** | **Spring Reverb** | Reverb | Mix, Decay, Tone | ✅ |
+| **#7** | **Celestial Shimmer** | Pitch / Reverb | Mix, Decay, Shimmer Pitch | |
+| **#8** | **Cab Sim DI Box** | Cabinet Simulator | Cab Type (US/UK), Presence, Volume | ✅ |
 
 ---
 
@@ -76,7 +76,13 @@ List the available capture cards:
 arecord -l
 ```
 
-The default device is `hw:Go,0`. If yours is different, set its name in the `AUDIO_DEVICE` environment variable.
+The default device is `hw:Go,0`. If yours is different, set the `AUDIO_DEVICE` environment variable. The easiest way is a `.env` file next to `docker-compose.yml`:
+
+```bash
+echo 'AUDIO_DEVICE=hw:CARD,0' > .env
+```
+
+Replace `CARD` with the card name or number shown by `arecord -l`.
 
 ### 3. Launch
 
@@ -85,6 +91,16 @@ docker compose up -d
 ```
 
 Open `http://<YOUR_DEVICE_IP>` in your browser to access the control panel.
+
+### Choosing which pedals start enabled
+
+Every pedal has an `<NAME>_ACTIVE` variable that sets its initial state (`1` = on, `0` = off). By default Obsessive Drive, Spring Reverb and Cab Sim start enabled. For example:
+
+```bash
+FUZZ_ACTIVE=1 DELAY_ACTIVE=1 docker compose up -d
+```
+
+Available variables: `OVERDRIVE_ACTIVE`, `FUZZ_ACTIVE`, `FLANGER_ACTIVE`, `VIBRATO_ACTIVE`, `DELAY_ACTIVE`, `REVERB_ACTIVE`, `SHIMMER_ACTIVE`, `CABSIM_ACTIVE`.
 
 ---
 
@@ -120,48 +136,86 @@ docker compose -f docker-compose.build.yml up -d --build
 - **`plugins/*`**: each plugin reads its input slot from shared memory, processes the block with custom C++17 DSP, and posts the result to the next slot.
 - **`dashboard`**: inspects running pedal containers through the Docker socket, renders the controls, and sends parameter changes as UDP datagrams.
 
-### Slots
+### Slots and ports
 
-The bus has one more slot than there are pedals. **Slot 0** holds the raw input written by the engine. Each pedal reads slot *N* and writes slot *N+1*. With 8 pedals, the processed signal ends up in **slot 8**, which the engine sends to the ALSA output. Reordering pedals changes which slots they read from and write to.
+The bus has one more slot than there are pedals. **Slot 0** holds the raw input written by the engine. Each pedal reads slot *N* and writes slot *N+1*, so the processed signal ends up in **slot 8**, which the engine sends to the ALSA output. Reordering pedals changes which slots they read from and write to.
+
+Default layout:
+
+| Pedal | Input slot | Output slot | UDP port |
+|---|---|---|---|
+| Obsessive Drive | 0 | 1 | 9003 |
+| Fuzz Face | 1 | 2 | 9000 |
+| Jet Flanger | 2 | 3 | 9007 |
+| Tape Vibrato | 3 | 4 | 9004 |
+| Echo Tape Delay | 4 | 5 | 9005 |
+| Spring Reverb | 5 | 6 | 9001 |
+| Celestial Shimmer | 6 | 7 | 9002 |
+| Cab Sim DI Box | 7 | 8 | 9008 |
 
 ---
 
 ## 🐳 Docker Requirements
 
-If you write your own compose file or run containers manually, every container on the bus needs:
+The provided compose files already set this up. If you write your own, keep in mind:
 
-- **Access to the sound device** (engine): pass `/dev/snd` into the container, e.g. `devices: ["/dev/snd:/dev/snd"]`.
-- **A shared `/dev/shm`**: all engine and plugin containers must see the same shared memory, e.g. with `ipc: host` or a shared IPC namespace.
-- **Docker socket** (dashboard only): mounted so the dashboard can discover running pedals. See the security note below.
+- **Sound device (engine):** pass `/dev/snd` into the container with `devices: ["/dev/snd:/dev/snd"]`.
+- **Shared memory (engine and every plugin):** bind-mount the host's `/dev/shm` with `volumes: ["/dev/shm:/dev/shm"]`, so all containers see the same `pedal_bus` segment.
+- **Docker socket (dashboard only):** mounted so the dashboard can discover running pedals. See the security note below.
+- **Network:** all services share the `pedal_net` bridge network, which carries the UDP control traffic.
 
 ---
 
 ## 🔒 Security Note
 
-The dashboard mounts the Docker socket (`/var/run/docker.sock`), which is effectively **root access to the host**. The web UI has no authentication. Run it only on a trusted local network, and **do not expose port 80 to the internet**. If you need remote access, put it behind a VPN or an authenticated reverse proxy.
+The dashboard mounts the Docker socket (`/var/run/docker.sock`). Even with the `:ro` flag, which only makes the socket file read-only, anything that can reach the dashboard can effectively talk to the Docker API, which is **equivalent to root access on the host**. The web UI has no authentication. Run it only on a trusted local network and **do not expose port 80 to the internet**. For remote access, use a VPN or an authenticated reverse proxy.
 
 ---
 
 ## 🧩 Writing Your Own Plugin
 
-A plugin is a separate container with a C++17 DSP implementation. At a high level it must:
+A plugin is a separate container with a C++17 DSP implementation. Each plugin is started with three positional arguments:
+
+```text
+<input_slot> <output_slot> <udp_port>
+```
+
+and reads its initial on/off state from the `PEDAL_ACTIVE` environment variable. At a high level it must:
 
 1. Attach to the `/pedal_bus` shared memory segment.
 2. Wait on the semaphore for its input slot.
 3. Process one audio block.
-4. Write the result to the next slot and post that slot's semaphore.
-5. Listen for parameter updates over UDP.
+4. Write the result to its output slot and post that slot's semaphore.
+5. Listen for parameter updates on its UDP port.
 
-<!-- TODO: add a minimal plugin example (a skeleton .cpp file or a link to an existing plugin such as plugins/<name>) and a Dockerfile snippet. -->
+To add a pedal, create `plugins/<name>/Dockerfile`, then add a service to `docker-compose.build.yml`. The example below appends a ninth pedal after the Cab Sim, which also means raising the engine's final slot argument from `8` to `9`:
+
+```yaml
+  myeffect:
+    build:
+      context: .
+      dockerfile: plugins/myeffect/Dockerfile
+    environment:
+      - PEDAL_ACTIVE=${MYEFFECT_ACTIVE:-0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["8", "9", "9009"]
+    networks:
+      - pedal_net
+    restart: always
+```
+
+<!-- TODO: link an existing plugin (e.g. plugins/overdrive) as a reference implementation, or add a minimal skeleton .cpp here. -->
 
 ---
 
 ## 🩺 Troubleshooting
 
 **No sound**
-- Check the device name with `arecord -l` and `aplay -l`, and make sure `AUDIO_DEVICE` matches it.
-- Confirm the engine container can see `/dev/snd` (`docker exec <engine> ls /dev/snd`).
-- Make sure the plugin containers share the same `/dev/shm` as the engine.
+- Check the device name with `arecord -l` and `aplay -l`, and make sure `AUDIO_DEVICE` (in your environment or `.env` file) matches it.
+- Confirm the engine container can see `/dev/snd` (`docker compose exec engine ls /dev/snd`).
+- Make sure the engine and the plugins all mount the host's `/dev/shm`.
+- Check that the pedals you expect are enabled in the dashboard.
 
 **Crackling, dropouts or xruns**
 - Reduce the number of active pedals or the load on the host.
@@ -169,7 +223,7 @@ A plugin is a separate container with a C++17 DSP implementation. At a high leve
 - Check CPU load with `top`; on small boards the heavier effects (reverb, shimmer) cost the most.
 
 **A pedal does not show up in the dashboard**
-- Check that its container is running (`docker ps`).
+- Check that its container is running (`docker compose ps`).
 - Check that the dashboard has access to the Docker socket.
 
 **The dashboard does not open**
