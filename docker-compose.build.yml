@@ -1,0 +1,135 @@
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - pedal_net
+    restart: always
+
+  engine:
+    build:
+      context: .
+      dockerfile: engine/Dockerfile
+    devices:
+      - "/dev/snd:/dev/snd"
+    environment:
+      - AUDIO_DEVICE=${AUDIO_DEVICE:-hw:Go,0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["hw:Go,0", "8"]
+    networks:
+      - pedal_net
+    restart: always
+
+  overdrive:
+    build:
+      context: .
+      dockerfile: plugins/overdrive/Dockerfile
+    environment:
+      - PEDAL_ACTIVE=${OVERDRIVE_ACTIVE:-1}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["0", "1", "9003"]
+    networks:
+      - pedal_net
+    restart: always
+
+  fuzz:
+    build:
+      context: .
+      dockerfile: plugins/fuzz/Dockerfile
+    environment:
+      - PEDAL_ACTIVE=${FUZZ_ACTIVE:-0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["1", "2", "9000"]
+    networks:
+      - pedal_net
+    restart: always
+
+  flanger:
+    build:
+      context: .
+      dockerfile: plugins/flanger/Dockerfile
+    environment:
+      - PEDAL_ACTIVE=${FLANGER_ACTIVE:-0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["2", "3", "9007"]
+    networks:
+      - pedal_net
+    restart: always
+
+  vibrato:
+    build:
+      context: .
+      dockerfile: plugins/vibrato/Dockerfile
+    environment:
+      - PEDAL_ACTIVE=${VIBRATO_ACTIVE:-0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["3", "4", "9004"]
+    networks:
+      - pedal_net
+    restart: always
+
+  delay:
+    build:
+      context: .
+      dockerfile: plugins/delay/Dockerfile
+    environment:
+      - PEDAL_ACTIVE=${DELAY_ACTIVE:-0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["4", "5", "9005"]
+    networks:
+      - pedal_net
+    restart: always
+
+  reverb:
+    build:
+      context: .
+      dockerfile: plugins/reverb/Dockerfile
+    environment:
+      - PEDAL_ACTIVE=${REVERB_ACTIVE:-1}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["5", "6", "9001"]
+    networks:
+      - pedal_net
+    restart: always
+
+  shimmer:
+    build:
+      context: .
+      dockerfile: plugins/shimmer/Dockerfile
+    environment:
+      - PEDAL_ACTIVE=${SHIMMER_ACTIVE:-0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["6", "7", "9002"]
+    networks:
+      - pedal_net
+    restart: always
+
+  cabsim:
+    build:
+      context: .
+      dockerfile: plugins/cabsim/Dockerfile
+    environment:
+      - PEDAL_ACTIVE=${CABSIM_ACTIVE:-1}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["7", "8", "9008"]
+    networks:
+      - pedal_net
+    restart: always
+
+networks:
+  pedal_net:
+    driver: bridge

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Docker Pedalboard</title>
+    <style>
+        :root {
+            --bg-color: #0d0e11;
+            --panel-bg: #16171c;
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f0f0f0;
+            --text-dim: #888a93;
+            --accent-orange: #ff9800;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-main);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        .status {
+            font-size: 0.85rem;
+            color: #4caf50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4caf50;
+            box-shadow: 0 0 8px #4caf50;
+        }
+
+        .pedalboard {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            justify-content: center;
+            width: 100%;
+            max-width: 1300px;
+        }
+
+        .pedal-card {
+            background: var(--panel-bg);
+            border-radius: 14px;
+            padding: 18px 16px;
+            width: 270px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.06);
+            border: 1px solid var(--panel-border);
+            border-top: 5px solid #ff5722;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: grab;
+            transition: transform 0.15s ease, opacity 0.2s ease, border-color 0.2s ease;
+            position: relative;
+        }
+
+        .pedal-card:active {
+            cursor: grabbing;
+        }
+
+        .pedal-card.dragging {
+            opacity: 0.35;
+            transform: scale(0.96);
+        }
+
+        .pedal-card.drag-over {
+            transform: translateY(-6px);
+            border-color: var(--accent-orange);
+        }
+
+        .pedal-card.bypassed {
+            opacity: 0.55;
+            filter: grayscale(40%);
+        }
+
+        .pedal-order-badge {
+            position: absolute;
+            top: 10px;
+            left: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #555;
+            letter-spacing: 1px;
+        }
+
+        .pedal-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            width: 100%;
+            pointer-events: none;
+        }
+
+        .pedal-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #fff;
+            text-align: center;
+        }
+
+        .led-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #25262c;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+            transition: all 0.2s ease;
+        }
+
+        .pedal-card:not(.bypassed) .led-indicator {
+            background: #00e676;
+            box-shadow: 0 0 10px #00e676, 0 0 16px #00e676;
+        }
+
+        .controls-container {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            width: 100%;
+            margin-bottom: 24px;
+        }
+
+        .slider-row {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            width: 100%;
+        }
+
+        .slider-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-dim);
+            pointer-events: none;
+        }
+
+        .slider-value {
+            font-family: monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent-orange);
+        }
+
+        .slider-input {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #252730;
+            outline: none;
+            cursor: pointer;
+            touch-action: pan-x;
+        }
+
+        .slider-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            border: 2px solid #1a1b20;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+            transition: transform 0.1s ease, background 0.1s ease;
+        }
+
+        .slider-input:active::-webkit-slider-thumb {
+            transform: scale(1.15);
+            background: var(--accent-orange);
+        }
+
+        .stomp-switch {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #f0f0f0 25%, #9e9e9e 65%, #333 100%);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.6), inset 0 2px 3px rgba(255,255,255,0.8);
+            border: 3px solid #1a1a1a;
+            cursor: pointer;
+            outline: none;
+            transition: transform 0.08s ease;
+            margin-top: auto;
+        }
+
+        .stomp-switch:active {
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Docker Pedalboard</h1>
+        <div class="status">
+            <span class="status-dot"></span>
+            <span>SHM Bus Routing Live</span>
+        </div>
+    </header>
+
+    <main class="pedalboard" id="pedalboard-container"></main>
+
+    <script>
+        let draggedCard = null;
+
+        function updateBadges() {
+            document.querySelectorAll('.pedal-card').forEach((card, index) => {
+                const badge = card.querySelector('.pedal-order-badge');
+                if (badge) badge.innerText = `#${index + 1}`;
+            });
+        }
+
+        async function syncChainOrder() {
+            const cards = document.querySelectorAll('.pedal-card');
+            const newOrder = Array.from(cards).map(c => c.dataset.container);
+
+            updateBadges();
+
+            try {
+                await fetch('/api/reorder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order: newOrder })
+                });
+            } catch (err) {
+                console.error("Помилка маршрутизації:", err);
+            }
+        }
+
+        function initDragAndDrop() {
+            const container = document.getElementById('pedalboard-container');
+            const cards = document.querySelectorAll('.pedal-card');
+
+            cards.forEach(card => {
+                card.draggable = true;
+
+                card.addEventListener('dragstart', (e) => {
+                    draggedCard = card;
+                    card.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('dragging');
+                    cards.forEach(c => c.classList.remove('drag-over'));
+                    draggedCard = null;
+                    syncChainOrder();
+                });
+
+                card.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    if (draggedCard && draggedCard !== card) {
+                        card.classList.add('drag-over');
+                    }
+                });
+
+                card.addEventListener('dragleave', () => {
+                    card.classList.remove('drag-over');
+                });
+
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    card.classList.remove('drag-over');
+                    if (draggedCard && draggedCard !== card) {
+                        const allCards = Array.from(container.children);
+                        const fromIdx = allCards.indexOf(draggedCard);
+                        const toIdx = allCards.indexOf(card);
+
+                        if (fromIdx < toIdx) {
+                            card.after(draggedCard);
+                        } else {
+                            card.before(draggedCard);
+                        }
+                    }
+                });
+            });
+        }
+
+        function initControls() {
+            document.querySelectorAll('.slider-input').forEach(slider => {
+                const containerId = slider.dataset.container;
+                const paramId = slider.dataset.param;
+                const valueEl = document.getElementById(`val-${containerId}-${paramId}`);
+                const step = parseFloat(slider.step) || 0.05;
+
+                slider.addEventListener('input', (e) => {
+                    const val = parseFloat(e.target.value);
+                    valueEl.innerText = Number(val).toFixed(step < 0.1 ? 2 : 1);
+                });
+
+                slider.addEventListener('change', (e) => {
+                    const val = parseFloat(e.target.value);
+                    fetch('/api/param', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ container_id: containerId, param: paramId, value: val })
+                    });
+                });
+            });
+
+            document.querySelectorAll('.stomp-switch').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const card = btn.closest('.pedal-card');
+                    const containerId = btn.dataset.container;
+                    const isBypassed = card.classList.toggle('bypassed');
+                    const activeVal = isBypassed ? 0.0 : 1.0;
+
+                    fetch('/api/param', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ container_id: containerId, param: "bypass", value: activeVal })
+                    });
+                };
+            });
+        }
+
+        async function loadPedals() {
+            try {
+                const res = await fetch('/api/pedals');
+                const pedals = await res.json();
+                const container = document.getElementById('pedalboard-container');
+                container.innerHTML = '';
+
+                pedals.forEach((p, idx) => {
+                    const card = document.createElement('div');
+                    // Статус bypass береться безпосередньо з бекенду
+                    card.className = `pedal-card ${p.is_active ? '' : 'bypassed'}`;
+                    card.style.borderTopColor = p.color;
+                    card.dataset.container = p.id;
+
+                    let slidersHtml = '';
+                    p.controls.forEach(c => {
+                        slidersHtml += `
+                            <div class="slider-row">
+                                <div class="slider-meta">
+                                    <span>${c.name}</span>
+                                    <span class="slider-value" id="val-${p.id}-${c.id}">${c.default}</span>
+                                </div>
+                                <input type="range" class="slider-input" 
+                                       data-container="${p.id}" 
+                                       data-param="${c.id}" 
+                                       min="${c.min}" 
+                                       max="${c.max}" 
+                                       step="${c.step}" 
+                                       value="${c.default}">
+                            </div>
+                        `;
+                    });
+
+                    card.innerHTML = `
+                        <div class="pedal-order-badge">#${idx + 1}</div>
+                        <div class="pedal-header">
+                            <div class="led-indicator"></div>
+                            <div class="pedal-title">${p.name}</div>
+                        </div>
+                        <div class="controls-container">${slidersHtml}</div>
+                        <button class="stomp-switch" data-container="${p.id}"></button>
+                    `;
+                    container.appendChild(card);
+                });
+
+                initControls();
+                initDragAndDrop();
+            } catch (err) {
+                console.error("Помилка завантаження педалей:", err);
+            }
+        }
+
+        loadPedals();
+    </script>
+</body>
+</html>

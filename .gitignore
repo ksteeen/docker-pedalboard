@@ -1,0 +1,15 @@
+# Shared memory and OS junk
+/dev/shm/*
+*.swp
+*~
+.DS_Store
+
+# Build artifacts (if built outside docker)
+bin/
+build/
+*.o
+*.a
+*.so
+
+# Environment files with private settings
+.env.local

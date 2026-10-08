@@ -1,0 +1,115 @@
+services:
+  dashboard:
+    image: ksteeen/pedal-dashboard:latest
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - pedal_net
+    restart: always
+
+  engine:
+    image: ksteeen/pedal-engine:latest
+    devices:
+      - "/dev/snd:/dev/snd"
+    environment:
+      - AUDIO_DEVICE=${AUDIO_DEVICE:-hw:Go,0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["hw:Go,0", "8"]
+    networks:
+      - pedal_net
+    restart: always
+
+  overdrive:
+    image: ksteeen/pedal-overdrive:latest
+    environment:
+      - PEDAL_ACTIVE=${OVERDRIVE_ACTIVE:-1}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["0", "1", "9003"]
+    networks:
+      - pedal_net
+    restart: always
+
+  fuzz:
+    image: ksteeen/pedal-fuzz:latest
+    environment:
+      - PEDAL_ACTIVE=${FUZZ_ACTIVE:-0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["1", "2", "9000"]
+    networks:
+      - pedal_net
+    restart: always
+
+  flanger:
+    image: ksteeen/pedal-flanger:latest
+    environment:
+      - PEDAL_ACTIVE=${FLANGER_ACTIVE:-0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["2", "3", "9007"]
+    networks:
+      - pedal_net
+    restart: always
+
+  vibrato:
+    image: ksteeen/pedal-vibrato:latest
+    environment:
+      - PEDAL_ACTIVE=${VIBRATO_ACTIVE:-0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["3", "4", "9004"]
+    networks:
+      - pedal_net
+    restart: always
+
+  delay:
+    image: ksteeen/pedal-delay:latest
+    environment:
+      - PEDAL_ACTIVE=${DELAY_ACTIVE:-0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["4", "5", "9005"]
+    networks:
+      - pedal_net
+    restart: always
+
+  reverb:
+    image: ksteeen/pedal-reverb:latest
+    environment:
+      - PEDAL_ACTIVE=${REVERB_ACTIVE:-1}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["5", "6", "9001"]
+    networks:
+      - pedal_net
+    restart: always
+
+  shimmer:
+    image: ksteeen/pedal-shimmer:latest
+    environment:
+      - PEDAL_ACTIVE=${SHIMMER_ACTIVE:-0}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["6", "7", "9002"]
+    networks:
+      - pedal_net
+    restart: always
+
+  cabsim:
+    image: ksteeen/pedal-cabsim:latest
+    environment:
+      - PEDAL_ACTIVE=${CABSIM_ACTIVE:-1}
+    volumes:
+      - /dev/shm:/dev/shm
+    command: ["7", "8", "9008"]
+    networks:
+      - pedal_net
+    restart: always
+
+networks:
+  pedal_net:
+    driver: bridge
