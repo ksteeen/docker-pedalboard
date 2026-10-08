@@ -6,6 +6,10 @@ Each audio effect runs as an **isolated microservice**. Audio blocks are passed 
 
 <!-- TODO: add a screenshot of the web dashboard here, e.g.
 ![Dashboard](docs/dashboard.png)
+<p>
+  <img src="p1.jpg" width="60%">
+  <img src="p2.jpg" width="25%">
+</p>
 -->
 
 ---
